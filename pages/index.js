@@ -1,51 +1,129 @@
+import {useState, useEffect} from 'react';
 import Head from 'next/head'
+import Link from 'next/link'
 
-export default function Home() {
+
+
+//api
+const defaultEndPoint = 'https://rickandmortyapi.com/api/character/';
+
+export async function getServerSideProps(){
+  const res = await fetch(defaultEndPoint);
+  const data = await res.json();
+  return {
+    props:{
+      data
+    }
+  }
+}
+
+export default function Home({ data }) {
+  const {info, results: defaultResults = []} = data;
+  const [results, updateResults] = useState(defaultResults)
+  const [page, updatePage] = useState({
+    ...info,
+    current: defaultEndPoint
+  });
+
+  const { current } = page;
+
+  useEffect(() =>{
+    if(current === defaultEndPoint) return;
+  
+    async function request() {
+      const res = await fetch(current)
+      const nextData = await res.json();
+
+      updatePage({
+        current,
+        ...nextData.info
+      });
+
+      if( !nextData.info?.prev ){
+        updateResults(nextData.results);
+        return;
+      }
+
+      updateResults(prev =>{
+        return [
+          ...prev,
+          ...nextData.results
+        ]
+      });
+
+    }
+    request();
+  }, [current]);
+
+  //Event click load More card
+  function handleLoadMore(){
+  updatePage(prev =>{
+    return{
+      ...prev,
+      current:page?.next
+    }
+  });
+  }
+  
+
+  //create function for send value of submit 
+  function handleOnSubmitSearch(event) {
+    event.preventDefault();
+
+    const { currentTarget = {} } = event;
+    const fields = Array.from(currentTarget?.elements);
+    const fieldQuery = fields.find(field => field.name === 'query');
+
+    const value = fieldQuery.value || '';
+    const endPoint = `https://rickandmortyapi.com/api/character/?name=${value}`;
+    updatePage({
+      current:endPoint
+    });
+  }
+
+
   return (
     <div className="container">
       <Head>
-        <title>Create Next App</title>
+        <title>Wiki Rick and Morty</title>
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
       <main>
         <h1 className="title">
-          Welcome to <a href="https://nextjs.org">Next.js!</a>
+         Wubba Lubba Dub Dub!
         </h1>
 
         <p className="description">
-          Get started by editing <code>pages/index.js</code>
+          Rick and Morty Wiki
         </p>
+        
+        <form className="search" onSubmit={handleOnSubmitSearch}>
+          <input name="query" type="search"/>
+          <button>Search</button>
+        </form>
 
-        <div className="grid">
-          <a href="https://nextjs.org/docs" className="card">
-            <h3>Documentation &rarr;</h3>
-            <p>Find in-depth information about Next.js features and API.</p>
-          </a>
+        <ul className="grid">
+          {results.map(result => {
+            const {id, name, image} = result;
 
-          <a href="https://nextjs.org/learn" className="card">
-            <h3>Learn &rarr;</h3>
-            <p>Learn about Next.js in an interactive course with quizzes!</p>
-          </a>
+            return(
+              <li key={id} className="card">
+                <Link href="/character/[id]" as={`/character/${id}`} >
+                 <a>
+                    <img src={image}  alt={`Thumb ${name}`} />
+                    <h3>{ name }</h3>
+                 </a>
+                </Link>
+              </li>
+            )
 
-          <a
-            href="https://github.com/vercel/next.js/tree/master/examples"
-            className="card"
-          >
-            <h3>Examples &rarr;</h3>
-            <p>Discover and deploy boilerplate example Next.js projects.</p>
-          </a>
-
-          <a
-            href="https://vercel.com/import?filter=next.js&utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
-            className="card"
-          >
-            <h3>Deploy &rarr;</h3>
-            <p>
-              Instantly deploy your Next.js site to a public URL with Vercel.
-            </p>
-          </a>
-        </div>
+          })}
+         
+        </ul>
+        <p>
+          <button onClick={handleLoadMore}>Load More</button>
+        </p>
       </main>
 
       <footer>
@@ -146,6 +224,9 @@ export default function Home() {
 
           max-width: 800px;
           margin-top: 3rem;
+          list-style:none;
+          margin-left:0;
+          padding-left:0;
         }
 
         .card {
@@ -188,6 +269,21 @@ export default function Home() {
             flex-direction: column;
           }
         }
+        .search input{
+          margin-right: .5em;
+        }
+
+        @media(max-width: 600px){
+          .search input {
+            margin-right:0;
+            margin-bottom:.5em;
+          }
+          .search input,
+          .search button {
+            width:100%;
+          }
+        }
+
       `}</style>
 
       <style jsx global>{`
